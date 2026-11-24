@@ -77,10 +77,10 @@ def grade_kb(state: AgentState):
     grader = llm().with_structured_output(EvidenceGrade, method="json_mode")
     context = "\n\n".join(f"Source: {d.metadata.get('source','unknown')}\n{d.page_content}" for d in state["kb_docs"])
     grade = grader.invoke(f"""
-You grade evidence for an enterprise IT support assistant.
+You grade retrieved document evidence for a knowledge assistant.
 Question: {state['question']}
-Private company KB evidence:\n{context}
-Return good only if the evidence is sufficient to answer confidently and specifically.
+Retrieved document evidence:\n{context}
+Return good if the evidence contains relevant facts, concepts, or answers for the question.
 Otherwise return weak. JSON: {{"grade":"good"}} or {{"grade":"weak"}}.
 """)
     return {"kb_grade": grade.grade, "trace": add_trace(state, f"KB evidence grade → {grade.grade.upper()}")}
@@ -145,9 +145,8 @@ Question: {state['question']}
 def generate_from_kb(state: AgentState):
     context = "\n\n".join(f"[Source: {d.metadata.get('source','unknown')}]\n{d.page_content}" for d in state["kb_docs"])
     answer = llm().invoke(f"""
-You are an enterprise IT support copilot. Answer ONLY from the private company KB below.
-Be concise, actionable, and safe. If steps are present, present them clearly.
-Do not invent policy details. Mention that the answer is based on the company's private knowledge base.
+You are a helpful knowledge assistant. Answer ONLY from the private knowledge base evidence below.
+Be concise, accurate, and clear. Mention that the answer is based on the private knowledge base.
 Question: {state['question']}\n\nPrivate KB:\n{context}
 """).content
     citations = []
@@ -181,6 +180,17 @@ def insufficient(state: AgentState):
         "trace": add_trace(state, "Stopped → insufficient reliable evidence"),
     }
 
+def route_question(state: AgentState):
+    router = llm().with_structured_output(RouteDecision, method="json_mode")
+    decision = router.invoke(f"""
+You route messages for an enterprise and document knowledge assistant.
+Use kb for ANY question asking for information, facts, explanations, summaries, MCQs,
+company policies, IT support, or topics from uploaded documents.
+Use direct ONLY for simple greetings, thanks, or casual small talk (such as "hi", "hello", "how are you", "thanks").
+Question: {state['question']}
+Return valid JSON like {{"route":"kb"}}.
+""")
+    return {"source_used": decision.route, "trace": add_trace(state, f"Router → {decision.route.upper()}")}
 
 def build_graph():
     graph = StateGraph(AgentState)
