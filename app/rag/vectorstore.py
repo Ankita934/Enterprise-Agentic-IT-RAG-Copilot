@@ -86,7 +86,7 @@ def get_retriever():
     return get_vectorstore().as_retriever(search_kwargs={"k": settings.top_k})
 
 
-def add_documents(chunks, batch_size: int = 20):
+def add_documents(chunks, batch_size: int = 40):
     store = get_vectorstore()
     for i in range(0, len(chunks), batch_size):
         batch = chunks[i : i + batch_size]
