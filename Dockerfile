@@ -4,14 +4,11 @@ WORKDIR /app
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
-ENV HF_HOME=/app/.cache/huggingface
 
 COPY requirements.txt .
 
 RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir --extra-index-url https://pytorch.org -r requirements.txt
-
-RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2')"
+    && pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 

@@ -1,7 +1,6 @@
 import time
 from pinecone import Pinecone, ServerlessSpec
-from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_pinecone import PineconeVectorStore
+from langchain_pinecone import PineconeEmbeddings, PineconeVectorStore
 from app.core.config import get_settings
 
 settings = get_settings()
@@ -10,44 +9,31 @@ _embeddings = None
 _vectorstore = None
 
 EMBEDDING_DIMENSIONS = {
+    "multilingual-e5-large": 1024,
+    "llama-text-embed-v2": 1024,
     "mistral-embed": 1024,
     "text-embedding-3-small": 1536,
-    "text-embedding-3-large": 3072,
-    "text-embedding-ada-002": 1536,
     "all-minilm-l6-v2": 384,
 }
 
 
 def get_embedding_dimension(model_name: str | None = None) -> int:
-    name = (model_name or settings.embedding_model or "").strip()
-    if not name:
-        raise RuntimeError("Embedding model is not configured")
-
-    normalized = name.lower()
-    if normalized in EMBEDDING_DIMENSIONS:
-        return EMBEDDING_DIMENSIONS[normalized]
-    if "mistral-embed" in normalized:
+    name = (model_name or settings.embedding_model or "multilingual-e5-large").strip().lower()
+    if name in EMBEDDING_DIMENSIONS:
+        return EMBEDDING_DIMENSIONS[name]
+    if "llama-text-embed-v2" in name or "multilingual-e5-large" in name:
         return 1024
-    if "text-embedding-3-small" in normalized:
-        return 1536
-    if "text-embedding-3-large" in normalized:
-        return 3072
-    if "text-embedding-ada-002" in normalized:
-        return 1536
-    if "all-minilm" in normalized:
-        return 384
-
-    raise ValueError(
-        f"Unsupported embedding model '{model_name or settings.embedding_model}' for Pinecone. "
-        "Add the matching dimension to EMBEDDING_DIMENSIONS."
-    )
+    return 1024
 
 
 def get_embeddings():
     global _embeddings
     if _embeddings is None:
-        _embeddings = HuggingFaceEmbeddings(
-            model_name=settings.embedding_model or "all-MiniLM-L6-v2",
+        if not settings.pinecone_api_key:
+            raise RuntimeError("PINECONE_API_KEY is missing")
+        _embeddings = PineconeEmbeddings(
+            model=settings.embedding_model or "multilingual-e5-large",
+            pinecone_api_key=settings.pinecone_api_key,
         )
     return _embeddings
 
